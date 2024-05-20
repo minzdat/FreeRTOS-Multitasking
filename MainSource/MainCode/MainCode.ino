@@ -5,7 +5,7 @@
 #include <Buzzer.h>
 #include <Bonezegei_LCD1602_I2C.h>
 
-// Khai báo chân
+// Set pins
 #define DHT11_PIN 15
 #define TRIGGER_PIN 16
 #define ECHO_PIN 17
@@ -15,20 +15,20 @@ const int buttonPinSemaphore = 19;
 const int ledPin =  32;    
 const int ledPinSemaphore =  33;   
 
-// Tạo đối tượng DHT11, Buzzer và LCD
+// Create DHT11, Buzzer and LCD objects
 DHT11 dht11(DHT11_PIN);
 Buzzer buzzer(13, 15);
 Bonezegei_LCD1602_I2C lcd(0x27);
 
-// Biến toàn cục để lưu giá trị cảm biến
+// Global variable to store sensor values
 int temperature = 0;
 int humidity = 0;
 double distance = 0;
-// Biến lưu trữ trạng thái nút nhấn và Led
+// Variable that stores button and LED states
 int buttonState1 = 0;
 int buttonState2 = 0;
 bool ledState = false;
-// Biến lưu trữ trạng thái blink Led
+// Variable that stores the blink Led state
 int countBlinkLed = 0;
 
 // Semaphore
@@ -73,10 +73,10 @@ void loop() {
   // Empty. Everything is handled by tasks.
 }
 
-// Hàm callback của Software Timer
+// Software Timer callback function
 void lcdTimerCallback(TimerHandle_t xTimer) {
 
-  // Đọc thành công, cập nhật hiển thị LCD
+  // Read successfully, update LCD display
   lcd.clear();
   lcd.setPosition(0, 0);
   lcd.print("Temp:");
@@ -275,10 +275,10 @@ void buttonLedTask(void *pvParameters) {
 }
 
 void lcdTask(void *pvParameters) {
-  // Khởi tạo LCD
+  // Initialize LCD
   lcd.begin();
 
-  // Tạo Software Timer để cập nhật hiển thị LCD mỗi giây
+  // Create Software Timer to update LCD display every second
   lcdTimer = xTimerCreate("LCDTimer", pdMS_TO_TICKS(1000), pdTRUE, NULL, lcdTimerCallback);
   if (lcdTimer != NULL) {
     xTimerStart(lcdTimer, 0);
