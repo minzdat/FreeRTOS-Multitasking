@@ -1,4 +1,4 @@
-# FreeRTOS-Multitasking-Demo
+# FreeRTOS-Multitasking
 
 ## Introduction
 This project is a coursework exercise on FreeRTOS. We have created a system comprising multiple tasks to read data from sensors, display data on an LCD, control a buzzer, and an LED.
