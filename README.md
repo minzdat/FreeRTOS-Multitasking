@@ -14,7 +14,7 @@ This project is a coursework exercise on FreeRTOS. We have created a system comp
 
 ## Directory Structure
 This project includes the following directories:
-- `SourceMain`: Contains the main source code of the project.
+- `MainSource`: Contains the main source code of the project.
 - `Examples`: Contains demo source code to test each component.
 - `libraries`: Contains the necessary libraries for the project.
 
