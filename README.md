@@ -1,29 +1,47 @@
 # FreeRTOS-Multitasking
 
-## Introduction
-This project is a coursework exercise on FreeRTOS. We have created a system comprising multiple tasks to read data from sensors, display data on an LCD, control a buzzer, and an LED.
+## Hệ Thống Điều Khiển LED Ứng Dụng FreeRTOS
 
-## Project Tasks
-1. **Sensor Data Reading Task**: This task reads data from two sensors, DHT11 and HCSR-05, and stores it in a global variable.
-2. **LCD Task**: This task displays the values of the two sensors, DHT11 and HCSR-05, on the LCD. The sensor values are updated on the LCD every second.
-3. **Buzzer Running Task**: This task runs the buzzer passively.
-4. **LED Control Task**: This task includes two buttons to turn an LED on and off. This task responds immediately when there is an event from the button.
-5. **Semaphore Granting Task**: This task runs a button to grant a Semaphore. A Semaphore grant lasts for 2 seconds and can be granted up to 5 times per Semaphore grant.
-6. **LED Blinking Task**: This task is to blink an LED. The LED will blink 3 times per second when granted a Semaphore and must wait for the Semaphore granting process of the above task to complete.
+## Giới Thiệu
+Dự án này nhằm mục đích xây dựng một hệ thống điều khiển đa dạng các loại LED sử dụng hệ điều hành thời gian thực FreeRTOS. Hệ thống này có khả năng điều khiển từ LED đơn giản đến các module LED phức tạp, cung cấp một giải pháp linh hoạt và mạnh mẽ cho các ứng dụng cần hiển thị đèn LED đa dạng.
 
-## Directory Structure
-This project includes the following directories:
-- `MainSource`: Contains the main source code of the project.
-- `Examples`: Contains demo source code to test each component.
-- `libraries`: Contains the necessary libraries for the project.
+## Các Module LED
+- Module hiển thị 4 led 7 đoạn
+- Module LED RGB 3 màu
+- Module 8 Led RGB WS2812
+- Module 8 LED 5050 RGB WS2812B
+- Module 4 Led RGB WS2812
+- Màn hình Oled 0.91inch
+- Mạch hiển thị led ma trận MAX7219
+- Led lùn 5MM nhấp nháy 7 màu
+- Led 1W WW
+- LED đơn
 
-## Installation
-To install and run this project, you need a FreeRTOS and Arduino IDE development environment. You can download the project source code from here and open it in your development environment.
+## Công Nghệ và Kiến Thức Áp Dụng
+- **Semaphore**: Đảm bảo quản lý tài nguyên một cách hiệu quả.
+  - **Counting Semaphore**: Cho phép nhiều hơn một task có thể truy cập vào tài nguyên.
+  - **Binary Semaphore**: Hoạt động như một mutex với quyền sở hữu không được quản lý.
+- **Software Timer**: Cung cấp khả năng thực hiện các hành động sau một khoảng thời gian nhất định.
+- **Queue**:
+  - **Message Queue**: Gửi và nhận các thông điệp giữa các task.
+  - **Mail Queue**: Gửi các cấu trúc dữ liệu phức tạp hơn.
+- **Mailbox**: Gửi thông điệp nhanh chóng giữa các task.
+- **Interrupt**: Phản ứng nhanh với các sự kiện bên ngoài.
 
-1. **Install Arduino IDE**: You can download and install Arduino IDE from the official Arduino website.
-2. **Download and Install Libraries**: Copy the `libraries` folder into the `libraries` folder of your Arduino IDE on your computer.
-3. **Open the Project**: Open Arduino IDE, select `File -> Open...` and navigate to the `main` directory of the project.
-4. **Compile and Upload**: Press the `Upload` button to compile and upload the source code to your Arduino board.
+## Cấu Trúc Thư Mục
+Dự án này bao gồm các thư mục sau:
+- `MainCode`: Chứa mã nguồn chính của dự án.
+- `libraries`: Chứa các thư viện cần thiết cho dự án.
 
-## Contribution
-We welcome any contributions from the community. If you want to contribute, please create a Pull Request.
+## Cài đặt
+Để cài đặt và chạy dự án này, bạn cần có môi trường phát triển FreeRTOS và Arduino IDE. Bạn có thể tải xuống mã nguồn dự án từ đây và mở nó trong môi trường phát triển của mình.
+
+1. **Cài Đặt Arduino IDE**: Tải và cài đặt Arduino IDE từ trang web chính thức của Arduino.
+2. **Clone Dự Án Từ GitHub**: Mở Command Prompt hoặc Terminal và chạy lệnh sau để clone dự án:
+   `git clone https://github.com/minzdat/FreeRTOS-Multitasking.git` 
+4. **Tải và Cài Đặt Thư Viện**: Sao chép thư mục `libraries` vào thư mục `libraries` của Arduino IDE trên máy tính của bạn.
+5. **Mở Dự Án**: Mở Arduino IDE, chọn `File -> Open...` và điều hướng đến thư mục `MainCode` của dự án.
+6. **Biên Dịch và Tải Lên**: Nhấn nút `Upload` để biên dịch và tải mã nguồn lên bo mạch Arduino của bạn.
+   
+## Đóng góp
+Chúng tôi trân trọng mọi sự đóng góp từ các thành viên trong cộng đồng.
