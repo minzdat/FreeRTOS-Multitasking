@@ -38,7 +38,9 @@ Dự án này bao gồm các thư mục sau:
 
 1. **Cài Đặt Arduino IDE**: Tải và cài đặt Arduino IDE từ trang web chính thức của Arduino.
 2. **Clone Dự Án Từ GitHub**: Mở Command Prompt hoặc Terminal và chạy lệnh sau để clone dự án:
-   `git clone https://github.com/minzdat/FreeRTOS-Multitasking.git` 
+   ```
+    git clone https://github.com/minzdat/FreeRTOS-Multitasking.git
+   ```
 4. **Tải và Cài Đặt Thư Viện**: Sao chép thư mục `libraries` vào thư mục `libraries` của Arduino IDE trên máy tính của bạn.
 5. **Mở Dự Án**: Mở Arduino IDE, chọn `File -> Open...` và điều hướng đến thư mục `MainCode` của dự án.
 6. **Biên Dịch và Tải Lên**: Nhấn nút `Upload` để biên dịch và tải mã nguồn lên bo mạch Arduino của bạn.
