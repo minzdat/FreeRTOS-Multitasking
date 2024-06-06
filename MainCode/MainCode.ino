@@ -153,11 +153,19 @@ void task3(void* pvParameters) {
         if (xQueueReceive(task3Queue, &event, portMAX_DELAY) == pdTRUE) {
             Serial.println("Event received in task3");
             if (xSemaphoreTake(ws2812Mutex, portMAX_DELAY) == pdTRUE) {
-                setWS2812Color(255, 0, 0); // Đặt màu đỏ
-                vTaskDelay(5000 / portTICK_PERIOD_MS); 
-                setWS2812Color(0, 0, 0); // Tắt LED
-                xSemaphoreGive(ws2812Mutex);
-                Serial.println("WS2812 set to RED then turned off in task3");
+                do {
+                    setWS2812Color(255, 0, 0); // Đặt màu đỏ
+                    vTaskDelay(3000 / portTICK_PERIOD_MS); 
+                    setWS2812Color(0, 0, 0); // Tắt LED
+                    // Kiểm tra xem còn sự kiện nào trong hàng đợi không
+                    if (uxQueueMessagesWaiting(task3Queue) == 0) {
+                        xSemaphoreGive(ws2812Mutex); // Chỉ giải phóng khi không còn sự kiện
+                        Serial.println("Semaphore released in task3, no more events.");
+                        break;
+                    } else {
+                        Serial.println("Processing next event in task3 queue.");
+                    }
+                } while (xQueueReceive(task3Queue, &event, 0) == pdTRUE); // Xử lý ngay sự kiện tiếp theo nếu có
             }
             vTaskDelay(200 / portTICK_PERIOD_MS); 
         }
