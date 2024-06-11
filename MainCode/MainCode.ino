@@ -314,7 +314,6 @@ void loop() {
     static uint8_t lastButton1State = HIGH;
     static uint8_t lastButton2State = HIGH;
     static uint8_t lastButton3State = HIGH;
-    static uint8_t lastButton4State = HIGH;
 
     uint8_t currentButton1State = digitalRead(BUTTON1_PIN);
     uint8_t currentButton2State = digitalRead(BUTTON2_PIN);
