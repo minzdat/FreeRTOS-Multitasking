@@ -235,10 +235,66 @@ void taskCheckButton3(void *pvParameters) {
 
 // Xử lý sự kiện 4------------------------------------------------------------------------------------------------------------
 
+StreamBufferHandle_t xStreamBuffer;
+
+void taskCheckButton4(void *pvParameters) {
+    uint8_t buttonState = 0;
+    uint8_t lastButtonState = HIGH; 
+    char colorData[60]; // Mảng chứa dữ liệu gửi
+
+    while (1) {
+        buttonState = digitalRead(BUTTON4_PIN);
+        if (buttonState == LOW && lastButtonState == HIGH) {
+            // Tạo chuỗi màu theo yêu cầu
+            strcpy(colorData, "0,0,255|0,255,0|255,0,0|0,255,255|255,0,255|255,255,0");
+            xStreamBufferSend(xStreamBuffer, (void *)colorData, strlen(colorData), portMAX_DELAY);
+        }
+        lastButtonState = buttonState; 
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+void task4(void *pvParameters) {
+    size_t xReceivedBytes;
+    char rcvColorData[60]; 
+    int blinkDelay = 500; // Thời gian delay giữa các lần nhấp nháy (500ms)
+    char* token;
+    int r, g, b;
+
+    while (1) {
+        xReceivedBytes = xStreamBufferReceive(xStreamBuffer, (void *)rcvColorData, sizeof(rcvColorData), portMAX_DELAY);
+        if (xReceivedBytes > 0) {
+            token = strtok(rcvColorData, "|");
+            while (token != NULL) {
+                sscanf(token, "%d,%d,%d", &r, &g, &b);
+                // Bật LED với màu nhận được
+                digitalWrite(LED_R, r > 0 ? HIGH : LOW);
+                digitalWrite(LED_G, g > 0 ? HIGH : LOW);
+                digitalWrite(LED_B, b > 0 ? HIGH : LOW);
+                Serial.print("R: ");
+                Serial.print(r);
+                Serial.print(", G: ");
+                Serial.print(g);
+                Serial.print(", B: ");
+                Serial.println(b);
+                vTaskDelay(pdMS_TO_TICKS(blinkDelay)); 
+
+                // Tắt LED
+                digitalWrite(LED_R, LOW);
+                digitalWrite(LED_G, LOW);
+                digitalWrite(LED_B, LOW);
+                vTaskDelay(pdMS_TO_TICKS(blinkDelay)); // Đợi nhận màu tiếp theo
+
+                token = strtok(NULL, "|"); // Lấy màu tiếp theo trong chuỗi
+            }
+        }
+    }
+}
+
 /*---------------------------------------------------------------------------------------------------------------------------*/
 void setup() {
     Serial.begin(9600); 
-    
+
     pinMode(LED_R_PIN, OUTPUT); 
     pinMode(LED_G_PIN, OUTPUT); 
     pinMode(LED_B_PIN, OUTPUT); 
@@ -253,14 +309,19 @@ void setup() {
 
     ws2812Mutex = xSemaphoreCreateMutex();
     task2Queue = xQueueCreate(2, sizeof(uint8_t)); 
-    task3Queue = xQueueCreate(2, sizeof(uint8_t)); 
+    task3Queue = xQueueCreate(2, sizeof(uint8_t));
+    xStreamBuffer = xStreamBufferCreate(1028, 1); 
 
     xTaskCreate(task1Receiver, "Task1Receiver", 2048, NULL, 1, &task1ReceiverHandle);
     xTaskCreate(task1Sender, "Task1Sender", 2048, NULL, 1, NULL);
     xTaskCreate(task2, "Task2", 2048, NULL, 1, NULL);
-    xTaskCreate(task3, "Task3", 2048, NULL, 1, NULL); 
+    xTaskCreate(task3, "Task3", 2048, NULL, 1, NULL);       
+    xTaskCreate(task4, "Task4", 2048, NULL, 1, NULL); 
     xTaskCreate(taskCheckButton2, "TaskCheckButton2", 2048, NULL, 1, NULL);
     xTaskCreate(taskCheckButton3, "TaskCheckButton3", 2048, NULL, 1, NULL);
+    xTaskCreate(taskCheckButton4, "TaskCheckButton4", 2048, NULL, 1, NULL);
+
 }
+
 void loop() {
 }
