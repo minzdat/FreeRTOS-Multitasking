@@ -1,6 +1,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "freertos/stream_buffer.h"
 #include "Adafruit_NeoPixel.h"
 #include "stdbool.h"
 
@@ -10,7 +11,7 @@
 #define LED_B_PIN 17 
 // Led ws2812
 #define WS2812_PIN 5 
-//Led SMD RGB 
+// Led SMD RGB KY-009
 #define LED_R 12
 #define LED_G 14
 #define LED_B 27
@@ -18,7 +19,8 @@
 #define BUTTON1_PIN 15
 #define BUTTON2_PIN 2
 #define BUTTON3_PIN 0
-#define BUTTON4_PIN 21
+#define BUTTON4_PIN 18
+
 // Định nghĩa các hằng số cho trạng thái bật và tắt của LED
 #define LED_ON true
 #define LED_OFF false
@@ -28,58 +30,65 @@ SemaphoreHandle_t ws2812Mutex;
 
 // Xử lý sự kiện 1------------------------------------------------------------------------------------------------------------
 
-// Hàng đợi dùng để gửi các sự kiện từ nút bấm BUTTON1 đến task1Receiver
-QueueHandle_t task1Mailbox;
-
-static uint8_t button1PressCount = 0; // Biến đếm số lần nút BUTTON1 được nhấn
+// Khai báo task handle cho task1Receiver để có thể gửi thông báo tới nó
+TaskHandle_t task1ReceiverHandle = NULL;
 
 void task1Sender(void *pvParameters) {
-    uint8_t currentState = 0; // Trạng thái LED hiện tại, bắt đầu ở trạng thái tắt
-    static uint8_t lastButtonState = HIGH; // Lưu trạng thái cuối cùng của nút, bắt đầu ở trạng thái không nhấn
+    uint8_t currentState = 0;
+    static uint8_t lastButtonState = HIGH;
+    static uint8_t button1PressCount = 0; // Biến đếm số lần nút BUTTON1 được nhấn
 
     while (1) {
-        uint8_t currentButtonState = digitalRead(BUTTON1_PIN); // Đọc trạng thái hiện tại của nút BUTTON1
-        if (currentButtonState == LOW && lastButtonState == HIGH) { // Kiểm tra sự kiện nhấn nút
-            currentState = (currentState + 1) % 4; // Thay đổi trạng thái LED
-            uint8_t event = currentState; // Gửi trạng thái LED mới tới hàng đợi
-            xQueueSend(task1Mailbox, &event, 0); // Gửi trạng thái LED tới task1Receiver
+        uint8_t currentButtonState = digitalRead(BUTTON1_PIN);
+        if (currentButtonState == LOW && lastButtonState == HIGH) {
+            button1PressCount++;
+            if (button1PressCount > 4) {
+                button1PressCount = 1;
+            }
+            Serial.print("1--- Button 1 has been pressed ");
+            Serial.print(button1PressCount);
+            Serial.println(" times.");
+
+            currentState = (currentState + 1) % 4;
+            // Gửi trạng thái LED mới tới task1Receiver
+            xTaskNotify(task1ReceiverHandle, currentState, eSetValueWithOverwrite);
             vTaskDelay(pdMS_TO_TICKS(200)); // Đợi 200ms trước khi kiểm tra lại
         }
-        lastButtonState = currentButtonState; // Cập nhật trạng thái cuối cùng của nút
+        lastButtonState = currentButtonState;
         vTaskDelay(pdMS_TO_TICKS(10)); // Đợi 10ms trước khi kiểm tra trạng thái nút tiếp theo
     }
 }
 
 void task1Receiver(void *pvParameters) {
-    uint8_t receivedMessage;
+    uint32_t receivedState;
     while (1) {
-        if (xQueueReceive(task1Mailbox, &receivedMessage, portMAX_DELAY) == pdTRUE) {
-            // Xử lý thông điệp để thiết lập màu LED
-            switch (receivedMessage) {
-                case 0: // OFF
-                    digitalWrite(LED_R_PIN, LOW);
-                    digitalWrite(LED_G_PIN, LOW);
-                    digitalWrite(LED_B_PIN, LOW);
-                    break;
-                case 1: // RED
-                    digitalWrite(LED_R_PIN, HIGH);
-                    digitalWrite(LED_G_PIN, LOW);
-                    digitalWrite(LED_B_PIN, LOW);
-                    break;
-                case 2: // GREEN
-                    digitalWrite(LED_R_PIN, LOW);
-                    digitalWrite(LED_G_PIN, HIGH);
-                    digitalWrite(LED_B_PIN, LOW);
-                    break;
-                case 3: // BLUE
-                    digitalWrite(LED_R_PIN, LOW);
-                    digitalWrite(LED_G_PIN, LOW);
-                    digitalWrite(LED_B_PIN, HIGH);
-                    break;
-            }
+        // Chờ nhận thông báo từ task1Sender
+        xTaskNotifyWait(0x00, 0xFFFFFFFF, &receivedState, portMAX_DELAY);
+        switch (receivedState) {
+            case 0:
+                digitalWrite(LED_R_PIN, LOW);
+                digitalWrite(LED_G_PIN, LOW);
+                digitalWrite(LED_B_PIN, LOW);
+                break;
+            case 1:
+                digitalWrite(LED_R_PIN, HIGH);
+                digitalWrite(LED_G_PIN, LOW);
+                digitalWrite(LED_B_PIN, LOW);
+                break;
+            case 2:
+                digitalWrite(LED_R_PIN, LOW);
+                digitalWrite(LED_G_PIN, HIGH);
+                digitalWrite(LED_B_PIN, LOW);
+                break;
+            case 3:
+                digitalWrite(LED_R_PIN, LOW);
+                digitalWrite(LED_G_PIN, LOW);
+                digitalWrite(LED_B_PIN, HIGH);
+                break;
         }
     }
 }
+
 
 // Xử lý sự kiện 2------------------------------------------------------------------------------------------------------------
 
@@ -145,6 +154,30 @@ void task2(void* pvParameters) {
     }
 }
 
+// Task kiểm tra BUTTON2
+void taskCheckButton2(void *pvParameters) {
+    static uint8_t lastButton2State = HIGH;
+    uint8_t currentButton2State;
+    uint8_t event = 1;
+
+    while (1) {
+        currentButton2State = digitalRead(BUTTON2_PIN);
+        if (currentButton2State == LOW && lastButton2State == HIGH) {
+            Serial.print("2--- Messages waiting in task2Queue before sending: ");
+            Serial.println(uxQueueMessagesWaiting(task2Queue));
+
+            Serial.println("2--- Button 2 pressed, sending event to task2Queue");
+            if (xQueueSend(task2Queue, &event, pdMS_TO_TICKS(100)) == pdPASS) {
+                Serial.println("2--- Event sent to task2Queue successfully");
+            } else {
+                Serial.println("2--- Failed to send event to task2Queue");
+            }
+        }
+        lastButton2State = currentButton2State;
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+}
+
 // Xử lý sự kiện 3------------------------------------------------------------------------------------------------------------
 
 // Hàng đợi dùng để gửi các sự kiện từ nút bấm BUTTON3 đến task3
@@ -176,192 +209,58 @@ void task3(void* pvParameters) {
     }
 }
 
-// Xử lý sự kiện 4------------------------------------------------------------------------------------------------------------
-SemaphoreHandle_t mutexHandle;
-
-//Giải pháp Paterson
-volatile bool taskSelect = false; // false cho Task1, true cho Task2
-volatile bool flag0 = false, flag1 = false; // Flag cho Peterson
-volatile int turn;
-
-void task4_1(void *pvParameters) {
-    while (1) {
-        if (!taskSelect) {
-            flag0 = true;
-            turn = 1;
-            while (flag1 && turn == 1) {
-                // Busy waiting
-            }
-            // Critical section
-            digitalWrite(LED_R, LOW);
-            digitalWrite(LED_B, LOW);
-            digitalWrite(LED_G, HIGH);  // Bật LED xanh lá
-            vTaskDelay(pdMS_TO_TICKS(500));
-            digitalWrite(LED_G, LOW);  // Tắt LED xanh lá
-            vTaskDelay(pdMS_TO_TICKS(500));
-            // End of critical section
-            flag0 = false;
-        }
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-}
-
-void task4_2(void *pvParameters) {
-    uint8_t color = 0;
-    while (1) {
-        if (taskSelect) {
-            flag1 = true;
-            turn = 0;
-            while (flag0 && turn == 0) {
-                // Busy waiting
-            }
-            // Critical section
-            switch (color % 7) {  
-                case 0:
-                    digitalWrite(LED_R, HIGH);  // Đỏ
-                    break;
-                case 1:
-                    digitalWrite(LED_G, HIGH);  // Xanh lá
-                    break;
-                case 2:
-                    digitalWrite(LED_B, HIGH);  // Xanh dương
-                    break;
-                case 3:
-                    digitalWrite(LED_R, HIGH);
-                    digitalWrite(LED_G, HIGH);  // Vàng
-                    break;
-                case 4:
-                    digitalWrite(LED_R, HIGH);
-                    digitalWrite(LED_B, HIGH);  // Tím
-                    break;
-                case 5:
-                    digitalWrite(LED_G, HIGH);
-                    digitalWrite(LED_B, HIGH);  // Xanh ngọc
-                    break;
-                case 6:
-                    digitalWrite(LED_R, HIGH);
-                    digitalWrite(LED_G, HIGH);
-                    digitalWrite(LED_B, HIGH);  // Trắng
-                    break;
-            }
-            color++;  // Tăng biến color để thay đổi màu tiếp theo
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            // End of critical section
-            flag1 = false;
-            digitalWrite(LED_R, LOW);
-            digitalWrite(LED_G, LOW);
-            digitalWrite(LED_B, LOW);
-        }
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-}
-
-void switchTask4(void *pvParameters) {
-    static uint8_t lastButton4State = digitalRead(BUTTON4_PIN); // Khởi tạo trạng thái ban đầu phù hợp với trạng thái thực tế của nút
-    uint8_t currentButton4State;
-
-    while (1) {
-        currentButton4State = digitalRead(BUTTON4_PIN);
-
-        if (currentButton4State == LOW && lastButton4State == HIGH) {
-            Serial.println("Button 4 pressed, toggling task select");
-            if (xSemaphoreTake(mutexHandle, portMAX_DELAY)) {
-                taskSelect = !taskSelect;
-                xSemaphoreGive(mutexHandle);
-                Serial.print("Task select is now: ");
-                Serial.println(taskSelect ? "Task 4_2" : "Task 4_1");
-            } else {
-                Serial.println("Failed to take mutex in task4");
-            }
-        }
-        lastButton4State = currentButton4State; // Cập nhật trạng thái cuối cùng sau khi xử lý
-        vTaskDelay(pdMS_TO_TICKS(50)); // Đợi một khoảng thời gian ngắn trước khi kiểm tra lại
-    }
-}
-
-void setup() {
-    pinMode(LED_R_PIN, OUTPUT); // Thiết lập chân cho LED đỏ
-    pinMode(LED_G_PIN, OUTPUT); // Thiết lập chân cho LED xanh lá
-    pinMode(LED_B_PIN, OUTPUT); // Thiết lập chân cho LED xanh dương
-    pinMode(WS2812_PIN, OUTPUT); // Thiết lập chân cho dải LED WS2812
-    pinMode(LED_R, OUTPUT); // Thiết lập chân cho LED đỏ
-    pinMode(LED_G, OUTPUT); // Thiết lập chân cho LED xanh lá
-    pinMode(LED_B, OUTPUT); // Thiết lập chân cho LED xanh dương
-    pinMode(BUTTON1_PIN, INPUT_PULLUP); // Thiết lập chân cho nút nhấn 1
-    pinMode(BUTTON2_PIN, INPUT_PULLUP); // Thiết lập chân cho nút nhấn 2
-    pinMode(BUTTON3_PIN, INPUT_PULLUP); // Thiết lập chân cho nút nhấn 3
-    pinMode(BUTTON4_PIN, INPUT_PULLUP); // Thiết lập chân cho nút nhấn 4
-
-    task1Mailbox = xQueueCreate(1, sizeof(uint8_t)); // Tạo hàng đợi cho task1
-    task2Queue = xQueueCreate(2, sizeof(uint8_t)); // Tạo hàng đợi cho task2
-    task3Queue = xQueueCreate(2, sizeof(uint8_t)); // Tạo hàng đợi cho task3
-
-    ws2812Mutex = xSemaphoreCreateMutex(); // Tạo semaphore đồng bộ hóa việc truy cập tài nguyên vào WS2812
-    mutexHandle = xSemaphoreCreateMutex(); // Bảo vệ biến `taskSelect` khi có sự thay đổi giữa các task trong task4
-
-    xTaskCreate(task1Sender, "Task1Sender", 2048, NULL, 1, NULL); // Tạo task1Sender xử lý task 1
-    xTaskCreate(task1Receiver, "Task1Receiver", 2048, NULL, 1, NULL); // Tạo task1Receiver xử lý task 1
-    xTaskCreate(task2, "Task2", 2048, NULL, 1, NULL); // Tạo task2 xử lý task 2
-    xTaskCreate(task3, "Task3", 2048, NULL, 1, NULL); // Tạo task3 xử lý task 3
-    xTaskCreate(task4_1, "Task4_1", 2048, NULL, 1, NULL); // Tạo task4_1 xử lý task 4
-    xTaskCreate(task4_2, "Task4_2", 2048, NULL, 1, NULL); // Tạo task4_2 xử lý task 4
-    xTaskCreate(switchTask4, "SwitchTask4", 2048, NULL, 1, NULL); // Tạo switchTask4 xử lý task 4
-   
-    Serial.begin(9600); // Khởi động giao tiếp Serial
-}
-
-void loop() {
-    static uint8_t lastButton1State = HIGH;
-    static uint8_t lastButton2State = HIGH;
+// Task kiểm tra BUTTON3
+void taskCheckButton3(void *pvParameters) {
     static uint8_t lastButton3State = HIGH;
-
-    uint8_t currentButton1State = digitalRead(BUTTON1_PIN);
-    uint8_t currentButton2State = digitalRead(BUTTON2_PIN);
-    uint8_t currentButton3State = digitalRead(BUTTON3_PIN);
-    uint8_t currentButton4State = digitalRead(BUTTON4_PIN);
+    uint8_t currentButton3State;
     uint8_t event = 1;
 
-    // Kiểm tra BUTTON1
-    if (currentButton1State == LOW && lastButton1State == HIGH) {
-        button1PressCount++;
-        if (button1PressCount > 4) {
-            button1PressCount = 1;
+    while (1) {
+        currentButton3State = digitalRead(BUTTON3_PIN);
+        if (currentButton3State == LOW && lastButton3State == HIGH) {
+            Serial.print("3--- Messages waiting in task3Queue before sending: ");
+            Serial.println(uxQueueMessagesWaiting(task3Queue));
+
+            Serial.println("3--- Button 3 pressed, sending event to task3Queue");
+            if (xQueueSend(task3Queue, &event, pdMS_TO_TICKS(100)) == pdPASS) {
+                Serial.println("3--- Event sent to task3Queue successfully");
+            } else {
+                Serial.println("3--- Failed to send event to task3Queue");
+            }
         }
-        Serial.print("1--- Button 1 has been pressed ");
-        Serial.print(button1PressCount);
-        Serial.println(" times.");
-        xQueueSend(task1Mailbox, &event, 0);
-        vTaskDelay(pdMS_TO_TICKS(300)); 
-    }   
-    lastButton1State = currentButton1State;
-
-    // Kiểm tra BUTTON2
-    if (currentButton2State == LOW && lastButton2State == HIGH) {
-        Serial.print("2--- Messages waiting in task2Queue before sending: ");
-        Serial.println(uxQueueMessagesWaiting(task2Queue));
-
-        Serial.println("2--- Button 2 pressed, sending event to task2Queue");
-        if (xQueueSend(task2Queue, &event, pdMS_TO_TICKS(100)) == pdPASS) {
-            Serial.println("2--- Event sent to task2Queue successfully");
-        } else {
-            Serial.println("2--- Failed to send event to task2Queue");
-        }
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
-    lastButton2State = currentButton2State;
-
-    // Kiểm tra BUTTON3
-    if (currentButton3State == LOW && lastButton3State == HIGH) {
-        Serial.print("3--- Messages waiting in task3Queue before sending: ");
-        Serial.println(uxQueueMessagesWaiting(task3Queue));
-
-        Serial.println("3--- Button 3 pressed, sending event to task3Queue");
-        if (xQueueSend(task3Queue, &event, pdMS_TO_TICKS(100)) == pdPASS) {
-            Serial.println("3--- Event sent to task3Queue successfully");
-        } else {
-            Serial.println("3--- Failed to send event to task3Queue");
-        }
+        lastButton3State = currentButton3State;
         vTaskDelay(pdMS_TO_TICKS(300));
     }
-    lastButton3State = currentButton3State;
+}
+
+// Xử lý sự kiện 4------------------------------------------------------------------------------------------------------------
+
+/*---------------------------------------------------------------------------------------------------------------------------*/
+void setup() {
+    Serial.begin(9600); 
+    
+    pinMode(LED_R_PIN, OUTPUT); 
+    pinMode(LED_G_PIN, OUTPUT); 
+    pinMode(LED_B_PIN, OUTPUT); 
+    pinMode(WS2812_PIN, OUTPUT);
+    pinMode(LED_R, OUTPUT); 
+    pinMode(LED_G, OUTPUT);
+    pinMode(LED_B, OUTPUT); 
+    pinMode(BUTTON1_PIN, INPUT_PULLUP); 
+    pinMode(BUTTON2_PIN, INPUT_PULLUP); 
+    pinMode(BUTTON3_PIN, INPUT_PULLUP); 
+    pinMode(BUTTON4_PIN, INPUT_PULLUP);
+
+    ws2812Mutex = xSemaphoreCreateMutex();
+    task2Queue = xQueueCreate(2, sizeof(uint8_t)); 
+    task3Queue = xQueueCreate(2, sizeof(uint8_t)); 
+
+    xTaskCreate(task1Receiver, "Task1Receiver", 2048, NULL, 1, &task1ReceiverHandle);
+    xTaskCreate(task1Sender, "Task1Sender", 2048, NULL, 1, NULL);
+    xTaskCreate(task2, "Task2", 2048, NULL, 1, NULL);
+    xTaskCreate(task3, "Task3", 2048, NULL, 1, NULL); 
+    xTaskCreate(taskCheckButton2, "TaskCheckButton2", 2048, NULL, 1, NULL);
+    xTaskCreate(taskCheckButton3, "TaskCheckButton3", 2048, NULL, 1, NULL);
+}
+void loop() {
 }
