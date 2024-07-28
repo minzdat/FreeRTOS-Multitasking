@@ -1,7 +1,7 @@
 # FreeRTOS-Multitasking
 
 ## Introduction
-This project is a coursework exercise on FreeRTOS. We have created a system comprising multiple tasks to read data from sensors, display data on an LCD, control a buzzer, and an LED.
+This project is a coursework exercise on FreeRTOS. The system comprises multiple tasks to read data from sensors, display data on an LCD, and control a buzzer and an LED.
 
 ## Project Tasks
 1. **Sensor Data Reading Task**: This task reads data from two sensors, DHT11 and HCSR-05, and stores it in a global variable.
